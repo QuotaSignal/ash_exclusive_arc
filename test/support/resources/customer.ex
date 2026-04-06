@@ -5,7 +5,7 @@ defmodule AshExclusiveArc.Test.Customer do
 
   postgres do
     table "customers"
-    repo AshExclusiveArc.TestRepo
+    repo(AshExclusiveArc.TestRepo)
   end
 
   actions do

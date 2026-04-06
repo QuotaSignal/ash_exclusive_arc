@@ -5,7 +5,7 @@ defmodule AshExclusiveArc.Test.GuestSession do
 
   postgres do
     table "guest_sessions"
-    repo AshExclusiveArc.TestRepo
+    repo(AshExclusiveArc.TestRepo)
   end
 
   actions do

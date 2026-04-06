@@ -2,12 +2,15 @@ defmodule AshExclusiveArc.Changes.ValidateArc do
   @moduledoc false
   use Ash.Resource.Change
 
+  alias Ash.Changeset
+  alias Ash.Error.Changes.InvalidAttribute
+
   @impl true
   def change(changeset, opts, _context) do
-    Ash.Changeset.before_action(changeset, fn changeset ->
+    Changeset.before_action(changeset, fn changeset ->
       set_count =
         Enum.count(opts[:attributes], fn attr ->
-          Ash.Changeset.get_attribute(changeset, attr) != nil
+          Changeset.get_attribute(changeset, attr) != nil
         end)
 
       if set_count == 1 do
@@ -21,16 +24,17 @@ defmodule AshExclusiveArc.Changes.ValidateArc do
             n -> "exactly one of #{names} must be set, but #{n} were"
           end
 
-        Ash.Changeset.add_error(changeset, Ash.Error.Changes.InvalidAttribute.exception(
-          field: opts[:arc_name],
-          message: message
-        ))
+        Changeset.add_error(
+          changeset,
+          InvalidAttribute.exception(field: opts[:arc_name], message: message)
+        )
       end
     end)
   end
 
   @impl true
   def atomic(_changeset, opts, _context) do
-    {:not_atomic, "AshExclusiveArc validation for #{inspect(opts[:arc_name])} cannot run atomically"}
+    {:not_atomic,
+     "AshExclusiveArc validation for #{inspect(opts[:arc_name])} cannot run atomically"}
   end
 end

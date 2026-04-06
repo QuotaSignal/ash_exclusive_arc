@@ -2,8 +2,11 @@ defmodule AshExclusiveArc.Verifiers.ValidateArcs do
   @moduledoc false
   use Spark.Dsl.Verifier
 
+  alias Spark.Dsl.Extension
+  alias Spark.Error.DslError
+
   def verify(dsl_state) do
-    arcs = Spark.Dsl.Extension.get_entities(dsl_state, [:exclusive_arc])
+    arcs = Extension.get_entities(dsl_state, [:exclusive_arc])
 
     with :ok <- validate_unique_arc_names(arcs),
          :ok <- validate_references_present(arcs),
@@ -21,8 +24,14 @@ defmodule AshExclusiveArc.Verifiers.ValidateArcs do
 
   defp validate_references_present(arcs) do
     case Enum.filter(arcs, &Enum.empty?(&1.references)) do
-      [] -> :ok
-      empty -> dsl_error([:exclusive_arc], "Arcs must have at least one belongs_to: #{inspect(Enum.map(empty, & &1.name))}")
+      [] ->
+        :ok
+
+      empty ->
+        dsl_error(
+          [:exclusive_arc],
+          "Arcs must have at least one belongs_to: #{inspect(Enum.map(empty, & &1.name))}"
+        )
     end
   end
 
@@ -33,15 +42,20 @@ defmodule AshExclusiveArc.Verifiers.ValidateArcs do
           {:cont, :ok}
 
         dupes ->
-          {:halt, dsl_error([:exclusive_arc, :arc, arc.name], "Duplicate reference names: #{inspect(dupes)}")}
+          {:halt,
+           dsl_error(
+             [:exclusive_arc, :arc, arc.name],
+             "Duplicate reference names: #{inspect(dupes)}"
+           )}
       end
     end)
   end
 
   defp validate_no_cross_arc_duplicates(arcs) do
-    all_refs = Enum.flat_map(arcs, fn arc ->
-      Enum.map(arc.references, &{&1.name, arc.name})
-    end)
+    all_refs =
+      Enum.flat_map(arcs, fn arc ->
+        Enum.map(arc.references, &{&1.name, arc.name})
+      end)
 
     case find_duplicates(all_refs, &elem(&1, 0)) do
       [] ->
@@ -66,6 +80,6 @@ defmodule AshExclusiveArc.Verifiers.ValidateArcs do
   end
 
   defp dsl_error(path, message) do
-    {:error, Spark.Error.DslError.exception(path: path, message: message)}
+    {:error, DslError.exception(path: path, message: message)}
   end
 end

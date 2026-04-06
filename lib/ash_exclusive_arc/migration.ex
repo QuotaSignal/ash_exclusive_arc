@@ -28,8 +28,10 @@ defmodule AshExclusiveArc.Migration do
   """
 
   alias AshExclusiveArc.Resource.Info
+  alias Spark.Dsl.Extension
 
   @doc "Returns UP SQL statements for all exclusive arcs (or a specific arc) on the resource."
+  @spec up_statements(Ash.Resource.t(), atom() | nil) :: [String.t()]
   def up_statements(resource, arc_name \\ nil)
 
   def up_statements(resource, nil) do
@@ -47,6 +49,7 @@ defmodule AshExclusiveArc.Migration do
   end
 
   @doc "Returns DOWN SQL statements for all exclusive arcs (or a specific arc) on the resource."
+  @spec down_statements(Ash.Resource.t(), atom() | nil) :: [String.t()]
   def down_statements(resource, arc_name \\ nil)
 
   def down_statements(resource, nil) do
@@ -64,9 +67,11 @@ defmodule AshExclusiveArc.Migration do
   end
 
   @doc "Executes UP migration for all exclusive arcs (or a specific arc) on the resource."
+  @spec up(Ash.Resource.t(), atom() | nil) :: :ok
   def up(resource, arc_name \\ nil), do: execute_statements(up_statements(resource, arc_name))
 
   @doc "Executes DOWN migration for all exclusive arcs (or a specific arc) on the resource."
+  @spec down(Ash.Resource.t(), atom() | nil) :: :ok
   def down(resource, arc_name \\ nil), do: execute_statements(down_statements(resource, arc_name))
 
   defp execute_statements(statements) do
@@ -83,7 +88,13 @@ defmodule AshExclusiveArc.Migration do
     check = check_info(resource, arc)
     indexes = index_infos(resource, arc)
 
-    [check.up | Enum.map(indexes, &"CREATE INDEX #{&1.index_name} ON #{&1.table} (#{&1.column}) WHERE #{&1.where}")]
+    [
+      check.up
+      | Enum.map(
+          indexes,
+          &"CREATE INDEX #{&1.index_name} ON #{&1.table} (#{&1.column}) WHERE #{&1.where}"
+        )
+    ]
   end
 
   defp arc_statements(resource, arc, :down) do
@@ -94,7 +105,7 @@ defmodule AshExclusiveArc.Migration do
   end
 
   defp check_info(resource, arc) do
-    case Spark.Dsl.Extension.get_persisted(resource, {:exclusive_arc_check, arc.name}) do
+    case Extension.get_persisted(resource, {:exclusive_arc_check, arc.name}) do
       nil -> build_check_info(arc)
       info -> info
     end
@@ -102,7 +113,7 @@ defmodule AshExclusiveArc.Migration do
 
   defp index_infos(resource, arc) do
     Enum.map(arc.references, fn ref ->
-      case Spark.Dsl.Extension.get_persisted(resource, {:exclusive_arc_index, arc.name, ref.name}) do
+      case Extension.get_persisted(resource, {:exclusive_arc_index, arc.name, ref.name}) do
         nil -> build_index_info(ref)
         info -> info
       end

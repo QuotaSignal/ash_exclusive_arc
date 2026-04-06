@@ -75,7 +75,6 @@ defmodule AshExclusiveArcIntegrationTest do
         CartItem
         |> Ash.Changeset.for_create(:create, %{
           customer_id: customer.id
-          # No purchasable FK set
         })
         |> Ash.create!()
       end

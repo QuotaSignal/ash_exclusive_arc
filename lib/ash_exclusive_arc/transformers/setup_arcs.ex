@@ -2,7 +2,11 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
   @moduledoc false
   use Spark.Dsl.Transformer
 
+  alias Ash.Resource.Builder
+  alias Ash.Resource.Info, as: ResourceInfo
   alias AshExclusiveArc.ArcReference
+  alias Spark.Dsl.Extension
+  alias Spark.Dsl.Transformer
 
   @before_transformers [
     Ash.Resource.Transformers.DefaultAccept,
@@ -13,7 +17,7 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
   def before?(_), do: false
 
   def transform(dsl_state) do
-    arcs = Spark.Dsl.Extension.get_entities(dsl_state, [:exclusive_arc])
+    arcs = Extension.get_entities(dsl_state, [:exclusive_arc])
 
     if Enum.empty?(arcs) do
       {:ok, dsl_state}
@@ -38,40 +42,34 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
   end
 
   defp add_attributes(dsl_state, arc) do
-    Enum.reduce_while(arc.references, {:ok, dsl_state}, fn ref, {:ok, dsl_state} ->
+    reduce_refs(arc, dsl_state, fn ref, dsl_state ->
       if ref.define_attribute do
-        case Ash.Resource.Builder.add_new_attribute(
-               dsl_state,
-               ArcReference.attribute_name(ref),
-               ref.attribute_type,
-               allow_nil?: true,
-               writable?: true,
-               public?: true
-             ) do
-          {:ok, dsl_state} -> {:cont, {:ok, dsl_state}}
-          {:error, _} = error -> {:halt, error}
-        end
+        Builder.add_new_attribute(
+          dsl_state,
+          ArcReference.attribute_name(ref),
+          ref.attribute_type,
+          allow_nil?: true,
+          writable?: true,
+          public?: true
+        )
       else
-        {:cont, {:ok, dsl_state}}
+        {:ok, dsl_state}
       end
     end)
   end
 
   defp add_relationships(dsl_state, arc) do
-    Enum.reduce_while(arc.references, {:ok, dsl_state}, fn ref, {:ok, dsl_state} ->
-      case Ash.Resource.Builder.add_new_relationship(
-             dsl_state,
-             :belongs_to,
-             ref.name,
-             ref.destination,
-             allow_nil?: true,
-             attribute_writable?: true,
-             public?: true,
-             define_attribute?: false
-           ) do
-        {:ok, dsl_state} -> {:cont, {:ok, dsl_state}}
-        {:error, _} = error -> {:halt, error}
-      end
+    reduce_refs(arc, dsl_state, fn ref, dsl_state ->
+      Builder.add_new_relationship(
+        dsl_state,
+        :belongs_to,
+        ref.name,
+        ref.destination,
+        allow_nil?: true,
+        attribute_writable?: true,
+        public?: true,
+        define_attribute?: false
+      )
     end)
   end
 
@@ -79,7 +77,7 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
     attr_names = Enum.map(arc.references, &ArcReference.attribute_name/1)
     ref_names = Enum.map(arc.references, & &1.name)
 
-    Ash.Resource.Builder.add_change(
+    Builder.add_change(
       dsl_state,
       {AshExclusiveArc.Changes.ValidateArc,
        [arc_name: arc.name, attributes: attr_names, references: ref_names]}
@@ -88,7 +86,7 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
 
   defp persist_constraint_info(dsl_state, arc) do
     section_ri =
-      Spark.Dsl.Transformer.get_option(dsl_state, [:exclusive_arc], :referential_integrity)
+      Transformer.get_option(dsl_state, [:exclusive_arc], :referential_integrity)
 
     arc_ri = if is_nil(arc.referential_integrity), do: section_ri, else: arc.referential_integrity
 
@@ -120,7 +118,7 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
       """)
 
     dsl_state =
-      Spark.Dsl.Transformer.persist(dsl_state, {:exclusive_arc_check, arc.name}, %{
+      Transformer.persist(dsl_state, {:exclusive_arc_check, arc.name}, %{
         table: table,
         constraint_name: check_name,
         up: up_sql,
@@ -141,7 +139,7 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
             "#{attr_name} IS NOT NULL"
           end
 
-        Spark.Dsl.Transformer.persist(
+        Transformer.persist(
           dsl_state,
           {:exclusive_arc_index, arc.name, ref.name},
           %{table: table, index_name: index_name, column: attr_name, where: where_clause}
@@ -152,10 +150,10 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
   end
 
   defp detect_table(dsl_state) do
-    case Spark.Dsl.Transformer.get_option(dsl_state, [:postgres], :table) do
+    case Transformer.get_option(dsl_state, [:postgres], :table) do
       nil ->
         dsl_state
-        |> Spark.Dsl.Transformer.get_persisted(:module)
+        |> Transformer.get_persisted(:module)
         |> Module.split()
         |> List.last()
         |> Macro.underscore()
@@ -175,16 +173,25 @@ defmodule AshExclusiveArc.Transformers.SetupArcs do
         nil
 
       true ->
-        case Ash.Resource.Info.attribute(dsl_state, :archived_at) do
+        case ResourceInfo.attribute(dsl_state, :archived_at) do
           nil -> nil
           _attr -> "archived_at"
         end
     end
   end
 
+  defp reduce_refs(arc, dsl_state, fun) do
+    Enum.reduce_while(arc.references, {:ok, dsl_state}, fn ref, {:ok, dsl_state} ->
+      case fun.(ref, dsl_state) do
+        {:ok, dsl_state} -> {:cont, {:ok, dsl_state}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
   defp ensure_default_accept(dsl_state) do
-    case Spark.Dsl.Transformer.get_option(dsl_state, [:actions], :default_accept) do
-      nil -> Spark.Dsl.Transformer.set_option(dsl_state, [:actions], :default_accept, :*)
+    case Transformer.get_option(dsl_state, [:actions], :default_accept) do
+      nil -> Transformer.set_option(dsl_state, [:actions], :default_accept, :*)
       _ -> dsl_state
     end
   end

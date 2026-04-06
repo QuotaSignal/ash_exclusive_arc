@@ -6,7 +6,7 @@ defmodule AshExclusiveArc.Test.CartItem do
 
   postgres do
     table "cart_items"
-    repo AshExclusiveArc.TestRepo
+    repo(AshExclusiveArc.TestRepo)
   end
 
   exclusive_arc do

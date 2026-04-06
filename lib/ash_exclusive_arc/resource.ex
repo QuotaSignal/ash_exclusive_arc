@@ -71,7 +71,8 @@ defmodule AshExclusiveArc.Resource do
       define_attribute: [
         type: :boolean,
         default: true,
-        doc: "Whether to define the foreign key attribute. Set to false if you define it yourself."
+        doc:
+          "Whether to define the foreign key attribute. Set to false if you define it yourself."
       ]
     ]
   }

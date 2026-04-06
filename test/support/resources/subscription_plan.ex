@@ -5,7 +5,7 @@ defmodule AshExclusiveArc.Test.SubscriptionPlan do
 
   postgres do
     table "subscription_plans"
-    repo AshExclusiveArc.TestRepo
+    repo(AshExclusiveArc.TestRepo)
   end
 
   actions do
