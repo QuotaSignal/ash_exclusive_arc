@@ -65,7 +65,33 @@ end
 
 ## Migrations
 
-After running `mix ash_postgres.generate_migrations`, add a separate migration for the constraints:
+After running `mix ash_postgres.generate_migrations`, generate the constraint
+migration:
+
+```bash
+mix ash_exclusive_arc.gen.migration MyApp.CartItem --repo MyApp.Repo
+```
+
+This task is analogous to `mix ash_postgres.generate_migrations`: it diffs the
+resource's current arc definitions against a JSON snapshot on disk and emits an
+`Ecto.Migration` whose `up/0` and `down/0` embed the resulting SQL inline.
+
+* First run for a resource → migration adds every CHECK constraint + partial
+  unique index. A new snapshot is written to
+  `priv/<repo>/exclusive_arc_snapshots/<table>.json`.
+* Subsequent runs → if you've added or removed an arc branch, the task emits a
+  migration that drops the obsolete shape and adds the new one. The snapshot is
+  updated to match.
+* Running with no DSL changes → reports "no changes detected" and writes nothing.
+
+The generated migration is self-contained — `Ecto.Migrator` does not load the
+snapshot at run time. The snapshot is a pretty-printed JSON artifact intended
+for diff-friendly review in version control.
+
+### Manual migrations (still supported)
+
+If you prefer writing migrations by hand, the runtime helpers from earlier
+versions are unchanged:
 
 ```elixir
 defmodule MyApp.Repo.Migrations.AddExclusiveArcConstraints do
