@@ -24,6 +24,7 @@ defmodule AshExclusiveArc.MixProject do
       ],
       deps: deps(),
       consolidate_protocols: Mix.env() != :test,
+      dialyzer: [plt_add_apps: [:mix, :ex_unit]],
       source_url: "https://github.com/britton-jb/ash_exclusive_arc",
       homepage_url: "https://github.com/britton-jb/ash_exclusive_arc"
     ]
