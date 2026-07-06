@@ -47,6 +47,18 @@ defmodule AshExclusiveArc.AtomicValidationTest do
       assert updated.customer_id == item.customer_id
     end
 
+    test "a require_atomic? true update succeeds on a resource with an exclusive arc" do
+      item = valid_item!()
+
+      updated =
+        item
+        |> Ash.Changeset.for_update(:set_quantity_atomic, %{quantity: 9})
+        |> Ash.update!()
+
+      assert updated.quantity == 9
+      assert updated.product_id == item.product_id
+    end
+
     test "atomic bulk update that empties an arc is rejected by the arc validation" do
       item = valid_item!()
 

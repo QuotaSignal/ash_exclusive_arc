@@ -18,7 +18,7 @@ defmodule AshExclusiveArc.Changes.ValidateArc do
       if set_count == 1 do
         changeset
       else
-        names = Enum.map_join(opts[:references], ", ", &inspect/1)
+        names = reference_names(opts)
 
         message =
           case set_count do
@@ -46,7 +46,7 @@ defmodule AshExclusiveArc.Changes.ValidateArc do
     values = Enum.map(attributes, fn attr -> expr(^atomic_ref(attr)) end)
     nil_count = expr(count_nils(^values))
     exactly_nil = length(attributes) - 1
-    names = Enum.map_join(opts[:references], ", ", &inspect/1)
+    names = reference_names(opts)
 
     {:atomic, %{},
      [
@@ -59,4 +59,6 @@ defmodule AshExclusiveArc.Changes.ValidateArc do
         )}
      ]}
   end
+
+  defp reference_names(opts), do: Enum.map_join(opts[:references], ", ", &inspect/1)
 end

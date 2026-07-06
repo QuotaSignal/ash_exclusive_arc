@@ -23,6 +23,12 @@ defmodule AshExclusiveArc.Test.CartItem do
 
   actions do
     defaults [:read, :destroy, create: :*, update: :*]
+
+    update :set_quantity_atomic do
+      require_atomic? true
+      argument :quantity, :integer, allow_nil?: false
+      change atomic_update(:quantity, expr(^arg(:quantity)))
+    end
   end
 
   attributes do
