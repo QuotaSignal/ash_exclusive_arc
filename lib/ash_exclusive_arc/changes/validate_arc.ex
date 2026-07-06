@@ -2,6 +2,8 @@ defmodule AshExclusiveArc.Changes.ValidateArc do
   @moduledoc false
   use Ash.Resource.Change
 
+  import Ash.Expr
+
   alias Ash.Changeset
   alias Ash.Error.Changes.InvalidAttribute
 
@@ -34,7 +36,27 @@ defmodule AshExclusiveArc.Changes.ValidateArc do
 
   @impl true
   def atomic(_changeset, opts, _context) do
-    {:not_atomic,
-     "AshExclusiveArc validation for #{inspect(opts[:arc_name])} cannot run atomically"}
+    # "Exactly one FK non-null" is the same predicate as the arc's DB CHECK
+    # constraint, so it can be enforced atomically. Emit it as an atomic
+    # validation (condition-true => error) over the arc's atomic refs, mirroring
+    # `Ash.Resource.Validation.AttributesPresent`. This keeps `require_atomic?`
+    # actions and `:atomic` / `:atomic_batches` bulk strategies working; the
+    # `change/3` before_action above still covers non-atomic execution.
+    attributes = opts[:attributes]
+    values = Enum.map(attributes, fn attr -> expr(^atomic_ref(attr)) end)
+    nil_count = expr(count_nils(^values))
+    exactly_nil = length(attributes) - 1
+    names = Enum.map_join(opts[:references], ", ", &inspect/1)
+
+    {:atomic, %{},
+     [
+       {:atomic, attributes, expr(^nil_count != ^exactly_nil),
+        expr(
+          error(^InvalidAttribute, %{
+            field: ^opts[:arc_name],
+            message: ^"exactly one of #{names} must be set"
+          })
+        )}
+     ]}
   end
 end
